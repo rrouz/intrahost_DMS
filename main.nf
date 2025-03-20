@@ -2,7 +2,6 @@
 
 nextflow.enable.dsl = 2
 
-// Parameter validation
 def validateParameters() {
     if (!params.reference) {
         exit 1, "Reference genome file not specified!"
@@ -12,7 +11,6 @@ def validateParameters() {
     }
 }
 
-// Import modules
 include { EXTRACT_REFERENCE     } from "${projectDir}/modules/local/extract_reference/main"
 include { GOFASTA_VARIANTS      } from "${projectDir}/modules/local/gofasta_variants/main"
 include { PULL_DMS              } from "${projectDir}/modules/local/pull_dms/main"
@@ -25,7 +23,6 @@ include { INTRAHOST_DMS         } from "${projectDir}/modules/local/intrahost_dm
 */
 
 workflow {
-    // Print pipeline info
     log.info """
     ==============================================
     H5N1 DMS ANALYSIS PIPELINE
@@ -37,7 +34,6 @@ workflow {
     ==============================================
     """
 
-    // Validate parameters
     validateParameters()
     
     // Create channel for segments
@@ -66,8 +62,8 @@ workflow {
     
     // Combine all DMS files
     PULL_DMS.out.dms_data
-        .map { it[1] }  // Extract just the JSON files
-        .collect()      // Collect all segments
+        .map { it[1] }  
+        .collect()      
         .set { all_dms_files }
     
     // Process intrahost data with DMS scores
