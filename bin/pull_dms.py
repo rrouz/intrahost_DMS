@@ -1,0 +1,151 @@
+#!/usr/bin/env python3
+
+"""Read in the DMS data from the Flu_H5_DMS_data repository and calculate the DMS scores for each sequence"""
+
+import pandas as pd
+import argparse
+from tqdm import tqdm
+import json
+import numpy as np
+import re
+
+def read_dms_data(dms_df, h5_site_header, h3_site_header=None):
+    # convert the DMS data to a json object dms_data['positions']['mutation'] = score
+    columns_to_retrieve = list(dms_df.columns)[3:]
+    dms_data = {}
+    for column in tqdm(columns_to_retrieve):
+        dms_data[column] = {}
+        for index, row in dms_df.iterrows():
+            site = row[h5_site_header]
+            mutant = row['mutant']
+            score = row[column]
+            if site not in dms_data[column]:
+                dms_data[column][site] = {}
+            dms_data[column][site][mutant] = score
+    return dms_data
+
+def parse_gofasta_mutations(mutations_file):
+    """Parse the gofasta CSV file to extract amino acid mutations
+    
+    Args:
+        mutations_file (str): Path to CSV file containing mutations
+        
+    Returns:
+        dict: Dictionary mapping sequence names to lists of mutation dictionaries
+    """
+    mutations_data = {}
+    df = pd.read_csv(mutations_file)
+    
+    for _, row in df.iterrows():
+        consensus = row['query']
+        mutations_data[consensus] = []
+        
+        # Check if mutations column has a valid string value
+        if pd.isna(row['mutations']) or not isinstance(row['mutations'], str):
+            continue
+            
+        # Extract amino acid mutations
+        aa_pattern = r'aa:[^:]+:([A-Z])(\d+)([A-Z])'
+        all_mutations = row['mutations'].split('|')
+        
+        for mutation in all_mutations:
+            if mutation.startswith('aa:'):
+                match = re.search(aa_pattern, mutation)
+                if match:
+                    ref, pos, mutant = match.groups()
+                    mutations_data[consensus].append({
+                        'ref': ref,
+                        'pos': int(pos),
+                        'mutant': mutant
+                    })
+    
+    return mutations_data
+
+def calculate_dms_scores(dms_data, mutations_data):
+    for sequence in mutations_data.keys():
+        for idx, mutation in enumerate(mutations_data[sequence]):
+            site = mutation['pos']
+            mutant = mutation['mutant']
+            mutations_data[sequence][idx]['dms_scores'] = {}
+            for column in dms_data.keys():
+                if site in dms_data[column]:
+                    if mutant in dms_data[column][site]:
+                        dms_score = dms_data[column][site][mutant]
+                        mutations_data[sequence][idx]['dms_scores'][column] = dms_score
+    return mutations_data.copy()
+
+def clean_dms_scores(dms_scores):
+    """Remove sequences with no mutations
+
+    Args:
+        dms_scores (dict): DMS scores for each sequence
+
+    Returns:
+        dict: DMS scores for each sequence with no mutations removed
+    """
+    return {k: v for k, v in dms_scores.items() if v}
+
+def combine_dms_files(dms_file_1, dms_file_2):
+    dms_df_1 = pd.read_csv(dms_file_1)
+    dms_df_2 = pd.read_csv(dms_file_2)
+    dms_df_2['antibody'] = dms_df_2['antibody'] + " sera escape"
+    dms_df_2 = dms_df_2.pivot_table(index=["site", "wildtype", "mutant", "antibody_set"], columns="antibody", values="escape").reset_index()
+    
+    dms_df_1.set_index(['site', 'wildtype', 'mutant'], inplace=True)
+    dms_df_2.set_index(['site', 'wildtype', 'mutant'], inplace=True)
+    combined_df = pd.concat([dms_df_1, dms_df_2], axis=1)
+
+    combined_df.reset_index(inplace=True)
+    return combined_df
+
+
+def write_dms_scores(dms_scores, output_file):
+    print(f"Writing DMS scores to {output_file}")
+    with open(output_file, 'w') as f:
+        json.dump(dms_scores, f)
+
+    rows = []
+    for consensus, mutations in dms_scores.items():
+        for mutation in mutations:
+            row = {
+                "Consensus": consensus,
+                "ref": mutation["ref"],
+                "pos": mutation["pos"],
+                "mutant": mutation["mutant"],
+                "sra": consensus.split("_")[1] if len(consensus.split("_")) > 1 else "",
+            }
+            row.update(mutation["dms_scores"])
+            rows.append(row)
+
+    df = pd.DataFrame(rows)
+    df.to_csv(output_file.replace(".json", ".csv"), index=False)
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--dms-file", required=True, help="Input DMS data file")
+    parser.add_argument("--dms-file-2", required=False, help="Input DMS data file")
+    parser.add_argument('--h5_site_header', type=str, help='header of column with amino acid sites, in h5 sequential numbering')
+    parser.add_argument('--h3_site_header', type=str, help='header of column with amino acid sites, in h3 sequential numbering (optional)', required=False)
+    parser.add_argument('--mutation_file', type=str, help='CSV file with mutations generated by gofasta')
+    parser.add_argument('--output_file', type=str, help='file to write DMS scores to')
+    return parser.parse_args()
+
+def main():
+    args = parse_args()
+    dms_df = combine_dms_files(args.dms_file, args.dms_file_2)
+
+    # assert that each site has a unique mutant
+    assert dms_df.groupby(['site', 'mutant']).size().max() == 1, "Each site must have a unique mutant"
+    
+    dms_df.to_csv('phenotypes.csv', index=False)
+    dms_data = read_dms_data(dms_df, h5_site_header=args.h5_site_header, h3_site_header=args.h3_site_header)
+    
+    # Use the new function to parse gofasta mutations instead of reading a JSON file
+    mutations_data = parse_gofasta_mutations(args.mutation_file)
+    
+    dms_scores = calculate_dms_scores(dms_data, mutations_data)
+    dms_scores = clean_dms_scores(dms_scores)
+    write_dms_scores(dms_scores, args.output_file)
+
+if __name__ == "__main__":
+    main()
