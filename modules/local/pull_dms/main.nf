@@ -1,5 +1,7 @@
 process PULL_DMS {
-    publishDir "${params.outdir}/dms", mode: 'copy'
+    tag "${segment}"
+    label 'process_medium'
+    publishDir "${params.outdir}/dms", mode: params.publish_dir_mode
     
     input:
     tuple val(segment), path(aa_changes_csv)
@@ -8,13 +10,15 @@ process PULL_DMS {
     tuple val(segment), path("dms_${segment}.json"), path("dms_${segment}.csv"), emit: dms_data
     
     script:
+    def args = task.ext.args ?: ''
     """
-    pull_dms.py \
-        --dms-file 'https://raw.githubusercontent.com/dms-vep/Flu_H5_American-Wigeon_South-Carolina_2021-H5N1_DMS/main/results/summaries/phenotypes.csv' \
-        --dms-file-2 'https://raw.githubusercontent.com/dms-vep/Flu_H5_American-Wigeon_South-Carolina_2021-H5N1_DMS/main/results/summaries/phenotypes_per_antibody_escape.csv' \
-        --h5_site_header "sequential_site" \
-        --h3_site_header "site" \
-        --mutation_file ${aa_changes_csv} \
-        --output_file dms_${segment}.json
+    pull_dms.py \\
+        --dms-file '${params.dms_file}' \\
+        --dms-file-2 '${params.dms_file_2}' \\
+        --h5_site_header "${params.h5_site_header}" \\
+        --h3_site_header "${params.h3_site_header}" \\
+        --mutation_file ${aa_changes_csv} \\
+        --output_file dms_${segment}.json \\
+        ${args}
     """
 }
