@@ -1,17 +1,25 @@
 process INTRAHOST_DMS {
-    publishDir "${params.outdir}/intrahost_dms", mode: 'copy'
+    tag "intrahost_analysis"
+    label 'process_high'
+    publishDir "${params.outdir}/intrahost_dms", mode: params.publish_dir_mode
 
     input:
     path dms_files
 
     output:
     path "combined_variants.tsv", emit: combined_variants
+    path "ha_variant_*.tsv", emit: ha_variants, optional: true
+    path "non_ha_variant_*.tsv", emit: non_ha_variants, optional: true
 
     script:
+    def args = task.ext.args ?: ''
     """
-    intrahost_dms.py \
-        --dms_file 'https://raw.githubusercontent.com/dms-vep/Flu_H5_American-Wigeon_South-Carolina_2021-H5N1_DMS/main/results/summaries/phenotypes.csv' \
-        --data_dir ${projectDir}/data/variants \
-        --output_dir ./
+    intrahost_dms.py \\
+        --dms_file '${params.dms_file}' \\
+        --data_dir ${params.variants_dir} \\
+        --output_dir ./ \\
+        --threads ${task.cpus} \\
+        --chunk_size 10000 \\
+        ${args}
     """
 }
