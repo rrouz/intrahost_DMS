@@ -57,8 +57,13 @@ workflow {
     // Find protein variants
     GOFASTA_VARIANTS(consensus_by_segment)
 
-    // Process DMS data
-    PULL_DMS(GOFASTA_VARIANTS.out.aa_changes)
+    // Filter only HA segment for DMS analysis
+    GOFASTA_VARIANTS.out.aa_changes
+        .filter { it[0] == 'HA' }
+        .set { ha_variants_ch }
+    
+    // Process DMS data only for HA segment
+    PULL_DMS(ha_variants_ch)
     
     // Combine all DMS files
     PULL_DMS.out.dms_data
