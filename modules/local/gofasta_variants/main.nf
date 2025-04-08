@@ -9,7 +9,29 @@ process GOFASTA_VARIANTS {
     
     script:
     """
-    minimap2 -t ${task.cpus} -a -x asm20 --score-N=0 ${reference_fasta} ${combined_fasta} > aligned_${segment}.sam
-    gofasta sam variants -s aligned_${segment}.sam  --annotation "${params.data_dir}/gff/${segment}.gff" -o aa_changes_${segment}.csv
+    minimap2 -t ${task.cpus} \
+             -a \
+             -x asm20 \
+             --score-N=0 \
+             -N 0 \
+             -p 0.8 \
+             ${reference_fasta} \
+             ${combined_fasta} > aligned_${segment}.sam
+             
+    if [ \$? -ne 0 ]; then
+        echo "Error: minimap2 alignment failed"
+        exit 1
+    fi
+    
+    gofasta sam variants \
+        -s aligned_${segment}.sam \
+        --annotation "${params.data_dir}/gff/${segment}.gff" \
+        --append-snps \
+        -o aa_changes_${segment}.csv
+        
+    if [ \$? -ne 0 ]; then
+        echo "Error: gofasta variants analysis failed"
+        exit 1
+    fi
     """
 }
