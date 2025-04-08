@@ -8,8 +8,6 @@ process INTRAHOST_DMS {
 
     output:
     path "combined_variants.tsv", emit: combined_variants
-    path "ha_variant_*.tsv", emit: ha_variants, optional: true
-    path "non_ha_variant_*.tsv", emit: non_ha_variants, optional: true
 
     script:
     def args = task.ext.args ?: ''
