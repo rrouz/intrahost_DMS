@@ -7,7 +7,7 @@ process PULL_DMS {
     tuple val(segment), path(aa_changes_csv)
     
     output:
-    tuple val(segment), path("dms_${segment}.json"), path("dms_${segment}.csv"), emit: dms_data
+    tuple val(segment), path("dms_${segment}.tsv"), emit: dms_data
     
     script:
     def args = task.ext.args ?: ''
@@ -16,9 +16,8 @@ process PULL_DMS {
         --dms-file '${params.dms_file}' \\
         --dms-file-2 '${params.dms_file_2}' \\
         --h5_site_header "${params.h5_site_header}" \\
-        --h3_site_header "${params.h3_site_header}" \\
         --mutation_file ${aa_changes_csv} \\
-        --output_file dms_${segment}.json \\
+        --output_file dms_${segment}.tsv \\
         ${args}
     """
 }
