@@ -27,6 +27,7 @@ process GOFASTA_VARIANTS {
         -s aligned_${segment}.sam \
         --annotation "${params.data_dir}/gff/${segment}.gff" \
         --append-snps \
+        --append-codons \
         -o aa_changes_${segment}.csv
         
     if [ \$? -ne 0 ]; then
