@@ -5,7 +5,7 @@ RUN apk add --no-cache git
 
 RUN git clone https://github.com/rrouz/gofasta.git /go/src/github.com/virus-evolution/gofasta && \
     cd /go/src/github.com/virus-evolution/gofasta && \
-    git checkout dc76f32 && \
+    git checkout 4dd35a5 && \
     git pull origin master
 
 # Build gofasta
@@ -18,7 +18,8 @@ FROM condaforge/mambaforge:latest
 # Copy the compiled gofasta binary from the builder stage
 COPY --from=builder /go/bin/gofasta /usr/local/bin/gofasta
 
-RUN apt-get update && apt-get install -y \
+# Combine apt-get operations into a single layer
+RUN apt-get update && apt-get install -y --no-install-recommends \
     procps \
     grep \
     sed \
