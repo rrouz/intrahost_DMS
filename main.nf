@@ -13,7 +13,6 @@ def validateParameters() {
 
 include { EXTRACT_REFERENCE     } from "${projectDir}/modules/local/extract_reference/main"
 include { GOFASTA_VARIANTS      } from "${projectDir}/modules/local/gofasta_variants/main"
-include { GOFASTA_CONVERT       } from "${projectDir}/modules/local/gofasta_convert/main"
 include { PULL_DMS              } from "${projectDir}/modules/local/pull_dms/main"
 include { INTRAHOST_DMS         } from "${projectDir}/modules/local/intrahost_dms/main"
 
@@ -57,9 +56,6 @@ workflow {
     
     // Find protein variants
     GOFASTA_VARIANTS(consensus_by_segment)
-    
-    // Convert variants to JSON format
-    GOFASTA_CONVERT(GOFASTA_VARIANTS.out.aa_changes)
 
     // Filter only HA segment for DMS analysis
     GOFASTA_VARIANTS.out.aa_changes
